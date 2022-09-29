@@ -52,6 +52,6 @@ names(total_data)<-gsub("BodyBody", "Body", names(total_data))
 activitygroups<-group_by(total_data, subject,activity)
 ##average each variable of data by activity
 Q5data<-summarize_all(activitygroups,mean)
-## create csv file of final data.
-write.csv(Q5data, "Tidydata.csv")
+## create txt file of final data.
+write.table(Q5data, "Tidydata.txt",row.names=F)
 
