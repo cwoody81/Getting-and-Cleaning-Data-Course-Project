@@ -1,0 +1,108 @@
+---
+title: "Final Project for Getting and Cleaning Data"
+author: "Clint Woody"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+```
+
+## 1. Merge the training and the test sets to create one data set.
+
+Before you can merge the two training sets of data you must download and unzip the data file.
+
+```{r download,message=FALSE}
+if(!file.exists("./data")){dir.create("./data")}
+url1<-"https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(url1,"./data/wearable.zip",method="curl")
+unzip("./data/wearable.zip", exdir="./data")
+```
+
+Once the data is downloaded and unzipped to the ./data directory we can read the .txt files in to r using the readr package read_table function.  I set the col_names to FALSE or labeled them in the function call to keep the function from reading the first line as column labels. I labeled the x_test and x_train data after the read_table function because I was getting a warning message of duplicate column names when renaming them in the read_table function call.
+
+```{r read data,message=FALSE}
+##extract the names of the data set and activities
+cnames<-read_table("./data/UCI HAR Dataset/features.txt",col_names=F)
+anames<-read_table("./data/UCI HAR Dataset/activity_labels.txt",col_names=F)
+
+y_test<-read_table("./data/UCI HAR Dataset/test/Y_test.txt", col_names="activity")
+x_test<-read_table("./data/UCI HAR Dataset/test/X_test.txt", col_names=F)
+colnames(x_test)<-cnames$X2
+subject_test<-read_table("./data/UCI HAR Dataset/test/subject_test.txt", col_names="subject")
+y_train<-read_table("./data/UCI HAR Dataset/train/Y_train.txt", col_names="activity")
+x_train<-read_table("./data/UCI HAR Dataset/train/X_train.txt", col_names=F)
+colnames(x_train)<-cnames$X2
+subject_train<-read_table("./data/UCI HAR Dataset/train/subject_train.txt", col_names="subject")
+
+```
+Then I combined the tables in two parts. First I combined the test data together in one table then the train data with the cbind function.  
+
+```{r 1st combine, message=FALSE}
+test_data<-cbind(subject_test,y_test,x_test)
+train_data<-cbind(subject_train,y_train,x_train)
+```
+
+I then combined the test and train data into one table called total data using the rbind function
+```{r 2nd combine,message=FALSE}
+total_data<-rbind(train_data,test_data)
+```
+
+## 2. Extract only the measurements on the mean and standard deviation for each measurement.
+
+To extract the measurements on the mean and standard deviation I used the grep function on the list of column names to identify which variables containing the mean or standard deviation.  In total there were 79, 46 were mean and 33 standard deviation. Once identified I used the select function from dplyr to extract the appropriate columns.
+
+```{r select variables,message=FALSE}
+scol<-grep("mean|std",names(total_data))
+total_data<-select(total_data,subject,activity,all_of(scol))
+```
+
+## 3. Uses descriptive activity names to name the activities in the data set
+
+Once I had the total data set compiled I then changed the activity column from its number code into the actual activity names.
+
+``` {r activity name,message=FALSE}
+##anames is the table that associates the number to its activity
+total_data$activity<-anames[total_data$activity, 2]
+
+```
+
+
+## 4. Appropriately labels the data set with descriptive variable names.
+
+I expanded the column labels to include the full descriptive variable names as
+outlined in the features_info.txt file.
+
+``` {r labels,message=FALSE}
+## change labels to the appropriate descriptive variable names
+names(total_data)<-gsub("Acc", "Acceleration", names(total_data))
+names(total_data)<-gsub("Gyro", "Gyroscopic", names(total_data))
+names(total_data)<-gsub("Mag", "Magnitude", names(total_data))
+names(total_data)<-gsub("^t", "Time", names(total_data))
+names(total_data)<-gsub("^f", "Frequency", names(total_data))
+names(total_data)<-gsub("-mean()", "Mean", names(total_data), ignore.case = TRUE)
+names(total_data)<-gsub("-std()", "STD", names(total_data), ignore.case = TRUE)
+names(total_data)<-gsub("-freq()", "Frequency", names(total_data), ignore.case = TRUE)
+names(total_data)<-gsub("BodyBody", "Body", names(total_data))
+
+```
+
+## 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+Finally to summarize the tidy data set I again used the dplyr package to group_by subject then activity.  Once grouped I could call the mean function to summarize all of the variables for each activity using the summarize function. I then saved the final tidy data table as a .csv file labeled "Tidydata.csv".
+Below is the resulting table:
+
+```{r final data}
+##group data by subject first then by activity
+activitygroups<-group_by(total_data, subject,activity)
+##average each variable of data by activity
+Q5data<-summarize_all(activitygroups,mean)
+## create csv file of final data.
+write.csv(Q5data, "Tidydata.csv")
+print(Q5data)
+```
+
+
+
